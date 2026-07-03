@@ -1,6 +1,7 @@
 # Discord to Email Forwarder
 
 This script watches one Discord channel and forwards each new message to one or more email addresses using SMTP.
+Messages that arrive within a five-minute quiet window are grouped into a single email.
 
 ## Files
 
@@ -30,5 +31,6 @@ python discord_email_forwarder.py
 
 - `SOURCE_CHANNEL_ID` should be the numeric ID of the Discord channel you want to watch.
 - `EMAIL_TO` accepts one or more comma-separated recipient addresses.
+- `GROUP_WINDOW_SECONDS` controls how long the script waits after the last message before sending a grouped email. The default is 300 seconds.
 - If your email provider requires it, use an app password rather than your normal password.
 - The script forwards plain text, author info, a jump link, and attachment URLs.
