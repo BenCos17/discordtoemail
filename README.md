@@ -14,7 +14,6 @@ Messages that arrive within a five-minute quiet window are grouped into a single
 1. Install the venv module
 
 You may need to ensure the full Python environment is installed:
-Bash
 
 apt update
 apt install python3-full
