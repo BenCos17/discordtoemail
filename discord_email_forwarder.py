@@ -52,6 +52,24 @@ async def build_email(message: discord.Message) -> EmailMessage:
     if not attachments:
         attachments = "None"
 
+    forwarded_sections = []
+    for index, snapshot in enumerate(message.message_snapshots, start=1):
+        snapshot_attachments = "\n".join(
+            f"- {attachment.filename}: {attachment.url}" for attachment in snapshot.attachments
+        )
+        if not snapshot_attachments:
+            snapshot_attachments = "None"
+
+        forwarded_sections.append(
+            f"Forwarded message {index}:\n"
+            f"  Type: {snapshot.type}\n"
+            f"  Created: {snapshot.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+            f"  Content: {snapshot.content or '[no text content]'}\n"
+            f"  Attachments:\n{snapshot_attachments}"
+        )
+
+    forwarded_text = "\n\n".join(forwarded_sections) if forwarded_sections else "None"
+
     body = (
         f"Channel: #{message.channel.name}\n"
         f"Server: {message.guild.name if message.guild else 'Direct Message'}\n"
@@ -61,6 +79,7 @@ async def build_email(message: discord.Message) -> EmailMessage:
         f"Link: {message.jump_url}\n\n"
         f"Content:\n{message.content or '[no text content]'}\n\n"
         f"Attachments:\n{attachments}\n"
+        f"\nForwarded snapshots:\n{forwarded_text}\n"
     )
 
     email["From"] = EMAIL_FROM
@@ -78,6 +97,18 @@ async def build_email(message: discord.Message) -> EmailMessage:
             subtype=subtype,
             filename=attachment.filename,
         )
+
+    for snapshot in message.message_snapshots:
+        for attachment in snapshot.attachments:
+            file_bytes = await attachment.read()
+            content_type = attachment.content_type or mimetypes.guess_type(attachment.filename)[0] or "application/octet-stream"
+            maintype, subtype = content_type.split("/", 1)
+            email.add_attachment(
+                file_bytes,
+                maintype=maintype,
+                subtype=subtype,
+                filename=attachment.filename,
+            )
 
     return email
 
