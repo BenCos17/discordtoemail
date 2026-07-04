@@ -1,1 +1,4 @@
 *.pyc
+*.pyc
+__pycache__/discord_email_forwarder.cpython-311.pyc
+/__pycache__
