@@ -2,6 +2,7 @@
 
 This script watches one Discord channel and forwards each new message to one or more email addresses using SMTP.
 Messages that arrive within a five-minute quiet window are grouped into a single email.
+the window is configurable in the .env file.
 
 ## Files
 
