@@ -11,6 +11,27 @@ Messages that arrive within a five-minute quiet window are grouped into a single
 
 ## Setup
 
+1. Install the venv module
+
+You may need to ensure the full Python environment is installed:
+
+apt update
+apt install python3-full
+
+2. Create the virtual environment
+
+Navigate to your project folder (~/discordtoemail) and create the virtual environment:
+Bash
+
+python3 -m venv venv
+
+This creates a folder named venv inside your project directory.
+3. Activate the environment
+
+Before running pip or your script, you must "enter" the environment:
+Bash
+
+source venv/bin/activate
 1. Install dependencies:
 
 ```bash
