@@ -1,8 +1,10 @@
 import asyncio
 from dataclasses import dataclass
+import io
 import mimetypes
 import os
 import smtplib
+import zipfile
 from email.message import EmailMessage
 from typing import Optional
 
@@ -75,6 +77,41 @@ def build_attachment_line(attachment: ForwardAttachment) -> str:
     return f"- {attachment.filename}"
 
 
+def is_image_attachment(attachment: ForwardAttachment) -> bool:
+    return attachment.content_type.startswith("image/")
+
+
+def unique_zip_name(existing: set[str], desired: str) -> str:
+    if desired not in existing:
+        existing.add(desired)
+        return desired
+
+    stem, ext = os.path.splitext(desired)
+    index = 2
+    while True:
+        candidate = f"{stem}_{index}{ext}"
+        if candidate not in existing:
+            existing.add(candidate)
+            return candidate
+        index += 1
+
+
+def build_images_zip(images: list[ForwardAttachment], zip_name: str = "images.zip") -> ForwardAttachment:
+    buffer = io.BytesIO()
+    used_names: set[str] = set()
+
+    with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for image in images:
+            arcname = unique_zip_name(used_names, image.filename)
+            zf.writestr(arcname, image.data)
+
+    return ForwardAttachment(
+        filename=zip_name,
+        content_type="application/zip",
+        data=buffer.getvalue(),
+    )
+
+
 async def create_forward_entry(message: discord.Message) -> ForwardEntry:
     attachments: list[ForwardAttachment] = []
     for attachment in message.attachments:
@@ -141,6 +178,9 @@ def build_email(entries: list[ForwardEntry]) -> EmailMessage:
         subject = f"{EMAIL_SUBJECT_PREFIX}: #{first_entry.channel_name} - {first_entry.author_name}"
 
     body_sections = []
+    all_images: list[ForwardAttachment] = []
+    all_non_images: list[ForwardAttachment] = []
+
     for index, entry in enumerate(entries, start=1):
         attachment_names = "\n".join(build_attachment_line(attachment) for attachment in entry.attachments)
         if not attachment_names:
@@ -161,20 +201,42 @@ def build_email(entries: list[ForwardEntry]) -> EmailMessage:
             f"\nForwarded snapshots:\n{forwarded_text}\n"
         )
 
+        for attachment in entry.attachments:
+            if is_image_attachment(attachment):
+                all_images.append(attachment)
+            else:
+                all_non_images.append(attachment)
+
+    if all_images:
+        body_sections.append(
+            f"Image attachments were bundled into a ZIP file: images.zip ({len(all_images)} image(s))."
+        )
+
     email["From"] = EMAIL_FROM
     email["To"] = ", ".join(EMAIL_TO)
     email["Subject"] = subject
     email.set_content("\n\n".join(body_sections))
 
-    for entry in entries:
-        for attachment in entry.attachments:
-            maintype, subtype = attachment.content_type.split("/", 1)
-            email.add_attachment(
-                attachment.data,
-                maintype=maintype,
-                subtype=subtype,
-                filename=attachment.filename,
-            )
+    # Attach zipped images as one file
+    if all_images:
+        zipped_images = build_images_zip(all_images, zip_name="images.zip")
+        maintype, subtype = zipped_images.content_type.split("/", 1)
+        email.add_attachment(
+            zipped_images.data,
+            maintype=maintype,
+            subtype=subtype,
+            filename=zipped_images.filename,
+        )
+
+    # Attach all non-image files normally
+    for attachment in all_non_images:
+        maintype, subtype = attachment.content_type.split("/", 1)
+        email.add_attachment(
+            attachment.data,
+            maintype=maintype,
+            subtype=subtype,
+            filename=attachment.filename,
+        )
 
     return email
 
